@@ -10,7 +10,6 @@ import com.truemed.Abs.Dto.CreateBookingRequest;
 import com.truemed.Abs.Dto.SlotResponseDto;
 import com.truemed.Abs.Dto.UpdateProfileRequest;
 import com.truemed.Abs.Dto.User;
-import com.truemed.Abs.Entity.CustomUser;
 
 @Service
 public interface UserService {
