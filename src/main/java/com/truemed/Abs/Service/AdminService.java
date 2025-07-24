@@ -6,6 +6,7 @@ import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import com.truemed.Abs.Dto.AuthRequest;
 import com.truemed.Abs.Dto.CreateSlotRequest;
 import com.truemed.Abs.Dto.SlotResponseDto;
 import com.truemed.Abs.Dto.SlotStatus;
@@ -24,4 +25,6 @@ public interface AdminService {
 	public List<SlotResponseDto> viewAllSlots();
 
 	public List<SlotResponseDto> viewBookedSlots(LocalDate date);
+
+	
 }

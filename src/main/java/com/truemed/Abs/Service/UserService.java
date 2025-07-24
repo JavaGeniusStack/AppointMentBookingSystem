@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import com.truemed.Abs.Dto.AuthRequest;
 import com.truemed.Abs.Dto.BookingAppointmentResponse;
 import com.truemed.Abs.Dto.CreateBookingRequest;
 import com.truemed.Abs.Dto.SlotResponseDto;
@@ -19,4 +20,5 @@ public interface UserService {
 	public BookingAppointmentResponse bookSlot(CreateBookingRequest createBookingRequest);
 	public List<SlotResponseDto> viewAllSlots();
 	public ResponseEntity cancelBooking(Long id);
+	public String loginByOtpOrPasswordJwt(AuthRequest user);
 }

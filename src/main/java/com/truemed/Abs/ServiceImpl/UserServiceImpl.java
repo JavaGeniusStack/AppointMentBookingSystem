@@ -15,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.truemed.Abs.Dto.AuthRequest;
 import com.truemed.Abs.Dto.BookingAppointmentResponse;
 import com.truemed.Abs.Dto.BookingStatus;
 import com.truemed.Abs.Dto.CreateBookingRequest;
@@ -35,6 +36,7 @@ import com.truemed.Abs.Service.AdminService;
 import com.truemed.Abs.Service.UserService;
 import com.truemed.Abs.Utility.OtpGenerationUtil;
 import com.truemed.Abs.Utility.SlotManagementUtil;
+import com.truemed.Abs.security.JwtUtil;
 
 import jakarta.persistence.PessimisticLockException;
 import lombok.extern.slf4j.Slf4j;
@@ -53,6 +55,9 @@ public class UserServiceImpl implements UserService, AdminService {
 
 	@Autowired
 	BookingRepo bookingRepo;
+
+	@Autowired
+	JwtUtil jwtUtil;
 
 	@Override
 	public ResponseEntity<String> registerUser(String email, String mobile) {
@@ -104,15 +109,16 @@ public class UserServiceImpl implements UserService, AdminService {
 		return !(email == null || "".equals(email));
 	}
 
+	static Boolean checkNullEmptyUtil(String field) {
+		return !(field == null || "".equals(field));
+	}
+
 	@Override
 	public ResponseEntity profileSetUp(UpdateProfileRequest updateProfileRequest) {
 		Optional<CustomUser> userToBePersisted = Optional.empty();
 		CustomUser savedUser = null;
 		if (updateProfileRequest != null && updateProfileRequest.getEmail() != null) {
 			userToBePersisted = userRepository.findById(updateProfileRequest.getId());
-//			userToBePersisted = userRepository.findByEmail(updateProfileRequest.getEmail());
-//			userToBePersisted = userRepository.findByUsernameOrEmail(null, updateProfileRequest.getEmail());
-
 			if (userToBePersisted.isEmpty()) {
 				throw new RuntimeException("User profile to be updated is not present");
 			} else {
@@ -150,8 +156,12 @@ public class UserServiceImpl implements UserService, AdminService {
 				log.info("user found from database");
 				if (user.getPassword().equals(userFromDb.get().getPassword())) {
 					return true;
+				} else {
+					log.info("password didnt match");
 				}
 
+			} else {
+				log.info("This email {} is not registered with us ", user.getEmail());
 			}
 		}
 
@@ -162,13 +172,69 @@ public class UserServiceImpl implements UserService, AdminService {
 				log.info("user found from database by mobile number");
 				if (user.getOtp().equals(userFromDb.get().getOtp())) {
 					return true;
+				} else {
+					log.info("otp didnt match");
 				}
 
+			} else {
+				log.info(" This mobile number {} not registered with us ", user.getMobile());
 			}
 		}
 
 		return false;
 
+	}
+
+	@Override
+	public String loginByOtpOrPasswordJwt(AuthRequest user) {
+
+		Optional<CustomUser> userFromDb = Optional.empty();
+		String token = "";
+		if (user == null) {
+			log.warn("AuthRequest is null");
+			return "";
+		}
+		// Login using Email + Password
+		if (checkNullEmptyUtil(user.getEmail()) && user.getPassword() != null) {
+			log.info("Attempting login with email: {}", user.getEmail());
+			userFromDb = userRepository.findByEmail(user.getEmail());
+
+			if (userFromDb.isEmpty()) {
+				log.warn("User not found for email: {}", user.getEmail());
+			} else {
+				CustomUser dbUser = userFromDb.get();
+				if (user.getPassword().equals(dbUser.getPassword())) {
+					token = jwtUtil.generateTokenFromMail(dbUser.getEmail(), dbUser.getRole());
+					log.info("Token generated using email/password login");
+					return token;
+				} else {
+					log.warn("Invalid password for email: {}", user.getEmail());
+				}
+			}
+		}
+
+		// Login using Mobile + OTP
+		if (checkNullEmptyUtil(user.getMobile()) && user.getOtp() != null) {
+			log.info("Attempting login with mobile: {}", user.getMobile());
+			userFromDb = userRepository.findByMobile(user.getMobile());
+
+			if (userFromDb.isEmpty()) {
+				log.warn("User not found for mobile: {}", user.getMobile());
+			} else {
+				CustomUser dbUser = userFromDb.get();
+				if (user.getOtp().equals(dbUser.getOtp())) {
+					token = jwtUtil.generateTokenFromMobile(dbUser.getMobile(), dbUser.getRole());
+					log.info("Token generated using mobile/OTP login");
+					return token;
+				} else {
+					log.warn("Invalid OTP for mobile: {}", user.getMobile());
+				}
+			}
+		} else {
+			log.warn("Invalid request: missing credentials (email/password or mobile/OTP)");
+		}
+
+		return token;
 	}
 
 	@Override
@@ -239,7 +305,7 @@ public class UserServiceImpl implements UserService, AdminService {
 		return responseDtos;
 
 	}
-	
+
 	@Override
 	public List<SlotResponseDto> viewBookedSlots(LocalDate date) {
 		List<Slot> slots = slotRepo.findByDate(date);
@@ -271,9 +337,10 @@ public class UserServiceImpl implements UserService, AdminService {
 							&& !createBookingRequest.getDate().isBefore(LocalDate.now()))
 					&& slot.getIsSlotEnabled().equals(SlotStatus.ENABLED)) {
 
-				if(createBookingRequest.getDate().equals(LocalDate.now()) && createBookingRequest.getSlotStartTime().isBefore(LocalTime.now())) {
-					return BookingAppointmentResponse.builder().message("Cant book before time").userId(slotId).date(slot.getDate())
-							.bookingStatus(BookingStatus.NOT_CONFIRMED).build();
+				if (createBookingRequest.getDate().equals(LocalDate.now())
+						&& createBookingRequest.getSlotStartTime().isBefore(LocalTime.now())) {
+					return BookingAppointmentResponse.builder().message("Cant book before time").userId(slotId)
+							.date(slot.getDate()).bookingStatus(BookingStatus.NOT_CONFIRMED).build();
 				}
 				slot.setBookingcount(slot.getBookingcount() + 1);
 				requestAppointment = BookingAppointment.builder().customUser(validPatient).slot(slot)
@@ -340,7 +407,5 @@ public class UserServiceImpl implements UserService, AdminService {
 			return ResponseEntity.ok("Booking cancelled for id : " + id);
 		}
 	}
-
-
 
 }

@@ -19,8 +19,12 @@ public class UserController {
 	UserService userService;
 
 	@PostMapping("/register")
-	public ResponseEntity registerUser(@RequestParam String email, @RequestParam String mobile) {
-
+	public ResponseEntity registerUser(@RequestParam(required = false) String email,
+			@RequestParam(required = false) String mobile) {
+		
+		if ((email == null || email.isEmpty()) && (mobile == null || mobile.isEmpty())) {
+			return ResponseEntity.badRequest().body("Either email or mobile must be provided.");
+		}
 		return userService.registerUser(email, mobile);
 	}
 
